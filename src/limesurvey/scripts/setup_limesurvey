@@ -1,0 +1,22 @@
+#! /bin/sh
+
+limesurvey_password_file="$SNAP_DATA/mysql/limesurvey_password"
+limesurvey_config_file="$SNAP_DATA"
+
+#Check for the config file
+
+# Wait for PHP FPM to be up and running before continuing
+# We want to instantiate the database
+
+php_pid_file_path=$SNAP_DATA/php/php-fpm.pid
+echo "Waiting for PHP..."
+while [ ! -f "$php_pid_file_path" ]; do
+	sleep 1
+done
+
+
+limesurvey_CONFIG_DIR=$SNAP_DATA/limesurvey/application/config
+if [ ! -e "$limesurvey_CONFIG_DIR/config.php" ]; then
+	echo "Configuring limesurvey..."
+	cp -r $SNAP/htdocs/config $limesurvey_CONFIG_DIR
+else
