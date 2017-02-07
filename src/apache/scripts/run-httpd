@@ -1,4 +1,4 @@
-#!/bin/sh
+#! /bin/sh
 
 mkdir -p -m 750 $SNAP_DATA/apache/logs
 

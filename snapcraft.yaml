@@ -1,5 +1,5 @@
 name:  limesurvey
-version: '2.62.1'
+version: '2.62.0'
 summary: Sophisticated online survey software
 description: |
  LimeSurvey is the No.1 open-source survey software worldwide.
@@ -9,20 +9,20 @@ grade: stable
 confinement: devmode # use 'strict' once you have the right plugs and slots
 
 apps:
- # Apache daemon
- apache:
-   command: run-httpd -k start -DFOREGROUND
-   stop-command: run-httpd -k stop
-   daemon: simple
-   restart-condition: always
-   plugs: [network, network-bind]
- # MySQL daemon
- mysql:
-   command: start_mysql
-   stop-command: support-files/mysql.server stop
-   daemon: simple
-   restart-condition: always
-   plugs: [network, network-bind]
+  # Apache daemon
+  apache:
+    command: run-httpd -k start -DFOREGROUND
+    stop-command: run-httpd -k stop
+    daemon: simple
+    restart-condition: always
+    plugs: [network, network-bind]
+  # MySQL daemon
+  mysql:
+    command: start_mysql
+    stop-command: support-files/mysql.server stop
+    daemon: simple
+    restart-condition: always
+    plugs: [network, network-bind]
   # PHP FPM daemon
   php-fpm:
     command: start-php-fpm
@@ -52,6 +52,8 @@ apps:
     restart-condition: always
     plugs: [network, network-bind]
 
+  limesurvey:
+    command: setup_limesurvey
 
 parts:
   apache:
@@ -93,10 +95,14 @@ parts:
       - $exclude
 
   apache-customizations:
-    plugin: copy
-    files:
-      src/apache/scripts/*: bin/
-      src/apache/conf/*: conf/
+    plugin: dump
+    after: [apache]
+    source:
+      ./src/apache/
+    organize:
+      scripts/: bin/
+      conf/: conf/
+
 
   php:
     plugin: php
@@ -146,21 +152,24 @@ parts:
 
   # Copy over our PHP configuration file.
   php-customizations:
-    plugin: copy
-    files:
-      src/php/config/*: config/php/
-      src/php/scripts/*: bin/
+    plugin: dump
+    source:
+      ./src/php/
+    organize:
+      config/: config/php/
+      scripts/: bin/
     stage-packages: [mawk]
 
   # Download the boost headers for MySQL. Note that the version used may need to
   # be updated if the version of MySQL changes.
   boost:
-    plugin: copy
-    source: http://sourceforge.net/projects/boost/files/boost/1.59.0/boost_1_59_0.tar.gz
-    files:
-      '*': boost/
+    plugin: dump
+    source: ./src/boost/boost_1_59_0.tar.gz
+    organize:
+      '*': $SNAPCRAFT_STAGE/boost/
     prime:
-      - -*
+      - '*'
+
   mysql:
     plugin: cmake
     source: https://github.com/kyrofa/mysql-server.git
@@ -169,6 +178,7 @@ parts:
     after: [boost]
     configflags:
       - -DWITH_BOOST=$SNAPCRAFT_STAGE/boost
+      - -DDOWNLOAD_BOOST=1
       - -DWITH_INNODB_PAGE_CLEANER_PRIORITY=OFF
       - -DCMAKE_INSTALL_PREFIX=/
       - -DBUILD_CONFIG=mysql_release
@@ -187,12 +197,10 @@ parts:
       - bison
       - libncurses5-dev
       - libaio-dev
-        stage:
+    stage:
       # Remove scripts that we'll be replacing with our own
       - -support-files/mysql.server
     prime:
-      # Remove scripts that we'll be replacing with our own
-      - -support-files/mysql.server
       # Remove unused binaries that waste space
       - -bin/innochecksum
       - -bin/lz4_decompress
@@ -219,22 +227,45 @@ parts:
 
   # Copy over our MySQL scripts
   mysql-customizations:
-    plugin: copy
-    files:
-      src/mysql/start_mysql: bin/
-      src/mysql/my.cnf: my.cnf
-      src/mysql/mysql.server: support-files/
+    plugin: dump
+    source:
+      ./src/mysql/
+    organize:
+      start_mysql: bin/start_mysql
+      my.cnf: support-files/my.cnf
+      mysql.server: support-files/mysql.server
 
-    delay-on-failure:
-    plugin: copy
-    files:
-      src/delay-on-failure/delay-on-failure: bin/
+  delay-on-failure:
+    plugin: dump
+    source:
+      ./src/delay-on-failure/
+    organize:
+      delay-on-failure: bin/delay-on-failure
 
   setup-https:
-    plugin: copy
-    files:
-      src/https/scripts/*: bin/
-      src/https/utilities/*: utilities/
+    plugin: dump
+    source:
+      ./src/https/
+    organize:
+      scripts/: usr/bin/
+      utilities/: utilities/
     stage-packages: [openssl]
-    stage: [-etc/ssl]
-    prime: [-etc/ssl]
+    stage: [ '-etc/ssl', '-src/https/' ]
+    prime: [ '-etc/ssl', '-src/https/' ]
+
+  limesurvey:
+    plugin: dump
+    source-type: 'git'
+    source-tag: '2.62.0+170124'
+    source: https://github.com/LimeSurvey/LimeSurvey
+    organize:
+      '*': htdocs/
+
+  limesurvey-extra:
+    plugin: dump
+    after: [ mysql, php, apache, limesurvey ]
+    source:
+      './src/limesurvey/'
+    organize:
+      scripts/: bin/
+      config/: htdocs/application/config

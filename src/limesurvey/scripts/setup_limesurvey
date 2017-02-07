@@ -15,8 +15,11 @@ while [ ! -f "$php_pid_file_path" ]; do
 done
 
 
-limesurvey_CONFIG_DIR=$SNAP_DATA/limesurvey/application/config
+limesurvey_CONFIG_DIR=$SNAP_DATA/htdocs/application/config
 if [ ! -e "$limesurvey_CONFIG_DIR/config.php" ]; then
 	echo "Configuring limesurvey..."
 	cp -r $SNAP/htdocs/config $limesurvey_CONFIG_DIR
+  php $limesurvey_CONFIG_DIR/installdb.php
 else
+
+fi
